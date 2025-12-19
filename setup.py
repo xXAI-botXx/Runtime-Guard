@@ -7,15 +7,15 @@ with open("./README.md", "r") as f:
 
 setup(
     name='runtime_guard',
-    version='0.1',
+    version='0.3',
     packages=find_packages(),
     install_requires=[],
     author="Tobia Ippolito",
-    description = 'Physical Simulations on Images.',
+    description = 'A ressource monitor without any dependencies.',
     long_description = readme,
     long_description_content_type="text/markdown",
     include_package_data=True,  # Ensures files from MANIFEST.in are included
-    download_url = 'https://github.com/xXAI-botXx/Runtime-Guard/archive/v_01.tar.gz',
+    download_url = 'https://github.com/xXAI-botXx/Runtime-Guard/archive/v_03.tar.gz',
     url="https://github.com/xXAI-botXx/Runtime-Guard",
     project_urls={
         "Documentation": "https://xXAI-botXx.github.io/Runtime-Guard/",

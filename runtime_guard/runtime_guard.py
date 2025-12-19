@@ -130,10 +130,10 @@ def add_custom_args(parser):
     parser.add_argument('--runtime_guard_max_gpu_usage', type=float, default=0.9)
     parser.add_argument('--runtime_guard_make_mean_loop_time_check', action='store_true')
     parser.add_argument('--runtime_guard_max_duration_factor_percentage', type=float, default=3.0)
-    parser.add_argument('--runtime_guard_goal_mean_loop_time', type=float, default=None)
+    parser.add_argument('--runtime_guard_goal_mean_loop_time', type=float, default=-1.0)
     parser.add_argument('--runtime_guard_mean_loop_time_window_size', type=int, default=50)
     parser.add_argument('--runtime_guard_make_watchdog_timer_check', action='store_true')
-    parser.add_argument('--runtime_guard_max_watchdog_seconds_timeout', type=int, default=300)
+    parser.add_argument('--runtime_guard_max_watchdog_seconds_timeout', type=int, default=-1)
     parser.add_argument('--runtime_guard_watchdog_seconds_waittime', type=int, default=30)
     parser.add_argument('--runtime_guard_make_leak_check', action='store_true')
     parser.add_argument('--runtime_guard_max_leak_mb', type=float, default=200.0)
@@ -208,8 +208,8 @@ class RuntimeGuard(object):
     def __init__(self, make_ram_check=True, max_ram_usage_percentage=0.9,
                        make_cpu_check=True, max_cpu_usage=0.9, 
                        make_gpu_check=True, max_gpu_usage=0.9, 
-                       make_mean_loop_time_check=True, max_duration_factor_percentage=3.0, goal_mean_loop_time=None, mean_loop_time_window_size=50,
-                       make_watchdog_timer_check=True, max_watchdog_seconds_timeout=60*5, watchdog_seconds_waittime=30, # 5 minutes
+                       make_mean_loop_time_check=True, max_duration_factor_percentage=3.0, goal_mean_loop_time=-1.0, mean_loop_time_window_size=50,
+                       make_watchdog_timer_check=False, max_watchdog_seconds_timeout=-1, watchdog_seconds_waittime=30, # 5 minutes
                        make_leak_check=True, max_leak_mb=100, max_leak_ratio=0.2,
                        should_print=False, print_every_x_calls=5000,
                        should_log=True, log_every_x_calls=5000, log_path="./runtime_guard.log",
@@ -251,20 +251,24 @@ class RuntimeGuard(object):
         
         self.make_cpu_check = make_cpu_check
         self.max_cpu_usage = max_cpu_usage
+        if self.make_cpu_check:
+            psutil.cpu_percent(interval=None)
 
         self.make_gpu_check = make_gpu_check
         self.max_gpu_usage = max_gpu_usage
 
         self.make_mean_loop_time_check = make_mean_loop_time_check
         self.max_duration_factor_percentage = max_duration_factor_percentage
-        self.goal_mean_loop_time_collected = True if goal_mean_loop_time else False
+        self.goal_mean_loop_time_collected = True if goal_mean_loop_time >= 0 else False
         self.mean_loop_time_window_size = mean_loop_time_window_size
         self.goal_mean_loop_time_counter = 0
-        self.goal_mean_loop_time = goal_mean_loop_time if goal_mean_loop_time else 0.0
+        self.goal_mean_loop_time = goal_mean_loop_time if goal_mean_loop_time >= 0 else 0.0
         self.mean_loop_time_window = deque(maxlen=self.mean_loop_time_window_size)
         self.cur_loop_start_time = None
 
         self.make_watchdog_timer_check = make_watchdog_timer_check
+        self.max_watchdog_seconds_timeout_collected = True if max_watchdog_seconds_timeout >= 0 else False
+        self.max_watchdog_seconds_timeout_timer = time.time()
         self.max_watchdog_seconds_timeout = max_watchdog_seconds_timeout
         self.watchdog_seconds_waittime = watchdog_seconds_waittime
         self.last_heartbeat = time.time()
@@ -398,10 +402,16 @@ class RuntimeGuard(object):
         else:
             mean_loop_time_result = "    - No Mean Loop Time Checking"
 
-        if self.abort_event.is_set():
+        if not self.max_watchdog_seconds_timeout_collected:
+            if self.max_watchdog_seconds_timeout < 0:
+                watchdog_result = "    - Calculating Basetime for Watchdog, then Watchdog will start."     
+        elif self.abort_event.is_set():
             self.exit(msg="[ABORT] Watchdog timeout")
         else:
-            watchdog_result = "    - Watchdog is still fine!"
+            if self.make_watchdog_timer_check:
+                watchdog_result = "    - Watchdog is still fine!"
+            else:
+                watchdog_result = "    - No Watchdog in use."
         
         if self.make_leak_check:
             leak_result = self.check_leak()
@@ -419,6 +429,12 @@ class RuntimeGuard(object):
         # update vars
         self.cur_call_n += 1
         self.last_heartbeat = time.time()
+
+        # update max watchdog timeout base time
+        if not self.max_watchdog_seconds_timeout_collected and self.max_watchdog_seconds_timeout < 0:
+            duration = time.time() - self.max_watchdog_seconds_timeout_timer
+            self.max_watchdog_seconds_timeout = duration + duration*1.0
+            self.max_watchdog_seconds_timeout_collected = True
 
     def start_loop(self):
         """
@@ -470,8 +486,8 @@ class RuntimeGuard(object):
         ### Returns
         - `str`: Human-readable status message
         """
-        # cpu_usage = psutil.cpu_percent(interval=None) / 100.0
-        cpu_usage = psutil.getloadavg()[0] / os.cpu_count()
+        cpu_usage = psutil.cpu_percent(interval=None) / 100.0
+        # cpu_load = psutil.getloadavg()[0] / os.cpu_count()
 
         if cpu_usage > self.max_cpu_usage:
             abort_txt = f"[ABORT] CPU usage too high: {cpu_usage*100:.2f}%"
@@ -605,10 +621,9 @@ class RuntimeGuard(object):
         - Triggers abort on timeout
         """
         def watchdog_func():
-            start_time = time.time()
             while True:
                 time.sleep(self.watchdog_seconds_waittime)
-                if not self.watchdog_should_wait:
+                if (not self.watchdog_should_wait) and self.max_watchdog_seconds_timeout_collected:
                     duration = time.time() - self.last_heartbeat
                     if duration > self.max_watchdog_seconds_timeout:
                         abort_txt = f"[ABORT] Training stalled -> Watchdog got delayed by {duration} seconds"

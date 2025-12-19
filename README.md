@@ -70,6 +70,13 @@ for epoch in epochs:
             # validation
 ```
 
+
+**Notice** that you can also wrap it around the outer loop but keep in mind that the calls will need much more time. For example if you set `update_every_x_calls` to 50 the guard will check only every 50 epochs.
+
+
+Real example are in the example notebook at [example.ipynb](https://github.com/xXAI-botXx/Runtime-Guard/blob/main/example.ipynb) which can be runned on Google Coolab.
+
+
 ---
 ### Argument Parsing (Usage Part II)
 
