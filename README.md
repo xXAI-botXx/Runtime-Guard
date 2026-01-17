@@ -3,7 +3,7 @@ The RuntimeGuard provides functionality to make sure your algorithm runs fine. i
 
 It supports RAM, CPU, GPU, mean-loop time, watchdog timer, and memory leak checks.
 
-[\> Documentation <](https://xXAI-botXx.github.io/Runtime-Guard/)
+[\> Documentation <](https://M-106.github.io/Runtime-Guard/)
 
 ---
 ### Installation
@@ -74,7 +74,7 @@ for epoch in epochs:
 **Notice** that you can also wrap it around the outer loop but keep in mind that the calls will need much more time. For example if you set `update_every_x_calls` to 50 the guard will check only every 50 epochs.
 
 
-Real example are in the example notebook at [example.ipynb](https://github.com/xXAI-botXx/Runtime-Guard/blob/main/example.ipynb) which can be runned on Google Coolab.
+Real example are in the example notebook at [example.ipynb](https://github.com/M-106/Runtime-Guard/blob/main/example.ipynb) which can be runned on Google Coolab.
 
 
 ---

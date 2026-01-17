@@ -259,10 +259,16 @@ class RuntimeGuard(object):
 
         self.make_mean_loop_time_check = make_mean_loop_time_check
         self.max_duration_factor_percentage = max_duration_factor_percentage
-        self.goal_mean_loop_time_collected = True if goal_mean_loop_time >= 0 else False
+        if goal_mean_loop_time:
+            self.goal_mean_loop_time_collected = True if goal_mean_loop_time >= 0 else False
+        else:
+            self.goal_mean_loop_time_collected = False
         self.mean_loop_time_window_size = mean_loop_time_window_size
         self.goal_mean_loop_time_counter = 0
-        self.goal_mean_loop_time = goal_mean_loop_time if goal_mean_loop_time >= 0 else 0.0
+        if goal_mean_loop_time:
+            self.goal_mean_loop_time = goal_mean_loop_time if goal_mean_loop_time >= 0 else 0.0
+        else:
+            self.goal_mean_loop_time = 0.0
         self.mean_loop_time_window = deque(maxlen=self.mean_loop_time_window_size)
         self.cur_loop_start_time = None
 
